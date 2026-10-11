@@ -1,0 +1,89 @@
+4 Motherfucking wheel
+/*
+  4-Wheel Test - ESP32 + L298N
+  Runs all 4 wheels at the same time: forward 3s, stop, backward 3s, stop, repeat.
+
+  Wiring: left motors (front+rear) -> OUT1/OUT2, right motors (front+rear) -> OUT3/OUT4
+          IN1=26 IN2=27 ENA=25 | IN3=14 IN4=12 ENB=13
+  Remove the ENA/ENB jumpers, connect all grounds, power the L298N from the battery.
+  Works on ESP32 core 2.x and 3.x.
+*/
+
+const int IN1 = 26;
+const int IN2 = 27;
+const int ENA = 25;   // left PWM
+
+const int IN3 = 14;
+const int IN4 = 12;   // GPIO12 is a strapping pin; move to 33 if boot problems
+const int ENB = 13;   // right PWM
+
+const int SPEED      = 200;    // 0-255
+const int RUN_MS     = 3000;   // how long to run each direction
+const int PAUSE_MS   = 1500;   // pause between directions
+
+void pwmSetup() {
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  ledcAttach(ENA, 1000, 8);
+  ledcAttach(ENB, 1000, 8);
+#else
+  ledcSetup(0, 1000, 8);  ledcAttachPin(ENA, 0);
+  ledcSetup(1, 1000, 8);  ledcAttachPin(ENB, 1);
+#endif
+}
+
+void setSpeed(int left, int right) {
+#if ESP_ARDUINO_VERSION_MAJOR >= 3
+  ledcWrite(ENA, left);
+  ledcWrite(ENB, right);
+#else
+  ledcWrite(0, left);
+  ledcWrite(1, right);
+#endif
+}
+
+void forward() {
+  digitalWrite(IN1, HIGH); digitalWrite(IN2, LOW);    // left side
+  digitalWrite(IN3, HIGH); digitalWrite(IN4, LOW);    // right side
+  setSpeed(SPEED, SPEED);
+}
+
+void backward() {
+  digitalWrite(IN1, LOW);  digitalWrite(IN2, HIGH);
+  digitalWrite(IN3, LOW);  digitalWrite(IN4, HIGH);
+  setSpeed(SPEED, SPEED);
+}
+
+void stopAll() {
+  digitalWrite(IN1, LOW); digitalWrite(IN2, LOW);
+  digitalWrite(IN3, LOW); digitalWrite(IN4, LOW);
+  setSpeed(0, 0);
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  pwmSetup();
+  stopAll();
+  delay(2000);   // time to put the robot down before it moves
+}
+
+void loop() {
+  Serial.println("FORWARD - all 4 wheels");
+  forward();
+  delay(RUN_MS);
+
+  Serial.println("STOP");
+  stopAll();
+  delay(PAUSE_MS);
+
+  Serial.println("BACKWARD - all 4 wheels");
+  backward();
+  delay(RUN_MS);
+
+  Serial.println("STOP");
+  stopAll();
+  delay(PAUSE_MS);
+}
