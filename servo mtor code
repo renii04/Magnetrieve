@@ -1,0 +1,86 @@
+#include <ESP32Servo.h>
+
+// Servo signal pins
+const int PIN_SERVO1 = 12;   // MG90S  (GPIO12 is a strapping pin; unplug its signal wire if upload/boot fails)
+const int PIN_SERVO2 = 22;   // MG90S
+const int PIN_SERVO3 = 13;   // MG996R
+
+// Pulse range (microseconds)
+const int MIN_US  = 500;
+const int MAX_US  = 2500;
+
+// Stop point. If a servo creeps while "stopped", adjust its value
+// (try 1480-1520) until it stands still.
+int stopUs1 = 1500;
+int stopUs2 = 1500;
+int stopUs3 = 1500;
+
+const int MAX_OFFSET_US = 400;   // full speed = stop +/- this
+
+Servo servo1;
+Servo servo2;
+Servo servo3;
+
+// speed: -100 (full one way) to +100 (full other way), 0 = stop
+void setSpeed(Servo &s, int stopUs, int speed) {
+  speed = constrain(speed, -100, 100);
+  s.writeMicroseconds(stopUs + (speed * MAX_OFFSET_US) / 100);
+}
+
+void setAll(int s1, int s2, int s3) {
+  setSpeed(servo1, stopUs1, s1);
+  setSpeed(servo2, stopUs2, s2);
+  setSpeed(servo3, stopUs3, s3);
+}
+
+void setup() {
+  Serial.begin(9600);
+
+  ESP32PWM::allocateTimer(0);
+  ESP32PWM::allocateTimer(1);
+  ESP32PWM::allocateTimer(2);
+  servo1.setPeriodHertz(50);
+  servo2.setPeriodHertz(50);
+  servo3.setPeriodHertz(50);
+
+  servo1.attach(PIN_SERVO1, MIN_US, MAX_US);
+  servo2.attach(PIN_SERVO2, MIN_US, MAX_US);
+  servo3.attach(PIN_SERVO3, MIN_US, MAX_US);
+
+  setAll(0, 0, 0);
+  delay(1000);
+
+  Serial.println("Continuous servos ready.");
+  Serial.println("Send: s1,s2,s3 (-100 to 100), e.g. 50,50,50 or -30,0,80. Send 0,0,0 to stop.");
+}
+
+void loop() {
+  // Manual control from Serial Monitor
+  if (Serial.available()) {
+    int s1 = Serial.parseInt();
+    int s2 = Serial.parseInt();
+    int s3 = Serial.parseInt();
+    while (Serial.available()) Serial.read();
+
+    Serial.printf("Speeds: %d, %d, %d\n", s1, s2, s3);
+    setAll(s1, s2, s3);
+    return;
+  }
+
+  // Demo: all three spin together
+  Serial.println("All 3 spinning one way");
+  setAll(60, 60, 60);
+  delay(3000);
+
+  Serial.println("Stop");
+  setAll(0, 0, 0);
+  delay(1000);
+
+  Serial.println("All 3 spinning the other way");
+  setAll(-60, -60, -60);
+  delay(3000);
+
+  Serial.println("Stop");
+  setAll(0, 0, 0);
+  delay(1000);
+}
